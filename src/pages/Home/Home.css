@@ -1,0 +1,12 @@
+/* src/pages/Home/Home.css */
+.home-container {
+    display: flex;
+    height: 100vh;
+  }
+  
+  .content {
+    margin-left: 200px; /* Espaço para o Navbar */
+    padding: 20px;
+    width: 100%;
+  }
+  

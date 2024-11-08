@@ -1,0 +1,58 @@
+/* src/components/Navbar/Navbar.css */
+.navbar {
+    width: 200px;
+    height: 100vh;
+    background-color: #ffffff;
+    color: #495057; /* Cor da fonte */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  .navbar-logo img {
+    width: 100px;
+    margin-bottom: 20px;
+  }
+  
+  .navbar-menu {
+    list-style: none;
+    padding: 0;
+    width: 100%; /* Para que os itens ocupem toda a largura */
+  }
+  
+  .navbar-menu li {
+    margin: 10px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease;
+  }
+  
+  .navbar-menu li .nav-item {
+    width: 100%;
+    color: inherit; /* Herdar a cor da barra de navegação */
+    padding: 15px;
+    text-align: left;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease;
+  }
+  
+  .navbar-menu li:hover .nav-item {
+    background-color: #E3FAFC;
+  }
+  
+  .navbar-menu li .nav-item svg {
+    margin-right: 10px;
+    fill: #FF830D; /* Cor dos ícones */
+  }
+  
+  .navbar-menu li:hover .nav-item svg {
+    fill: #FF830D; /* Manter a cor dos ícones no hover */
+  }
+  
