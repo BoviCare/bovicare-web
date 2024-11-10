@@ -6,7 +6,7 @@
 <body>
     <h1>Bovicare - Frontend </h1> 
     <img src="public/logo.svg" width=100px>
-    <p>Bovicare é um sistema web cujo frontend é desenvolvido com ReactJS. O objetivo do Bovicare é fornecer uma plataforma robusta e escalável para o gerenciamento de informações relacionadas ao cuidado de bovinos.</p>
+    <p>Bovicare é um sistema web cujo frontend é desenvolvido com ReactJS. O objetivo do Bovicare é fornecer uma plataforma robusta e escalável para o gerenciamento de informações relacionadas ao cuidado de bovinos.No decorrer da disciplina de Desenvolvimento api back-end, foi utilizado os conceitos apresentados de S.O.L.I.D, e os conceitos de aplicacao do CLEAN CODE, e com o CRUD</p>
 
   <h2>Tecnologias Utilizadas</h2>
     <ul>
