@@ -1,0 +1,47 @@
+.forgot-card h2 {
+  margin-bottom: 10px;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.radio input {
+  width: 18px;
+  height: 18px;
+}
+
+.radio.active {
+  color: #0aa7b0;
+}
+
+.code-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.code-input {
+  text-align: center;
+  font-size: 22px;
+}
+
+.error-text {
+  color: #dc3545;
+}
+
+.muted {
+  color: #a1a1a1;
+  text-align: center;
+}
+
+

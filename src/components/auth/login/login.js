@@ -57,6 +57,9 @@ function Login() {
           />
           <button type="submit">Entrar</button>
         </form>
+        <p>
+          <a href="/esqueci-senha">Esqueceu sua senha?</a>
+        </p>
         {error && <p>{error}</p>}
       </div>
     </div>
