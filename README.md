@@ -20,6 +20,8 @@
         <li>Gerenciamento de informações de bovinos</li>
         <li>Registro de dados de saúde e alimentação</li>
         <li>Acompanhamento de crescimento e produtividade</li>
+        <li>Acompanhamento do peso do gado</li>
+        <li>IA com chatbot integrado</li>
     </ul>
 
   <h2>Pré-requisitos</h2>
