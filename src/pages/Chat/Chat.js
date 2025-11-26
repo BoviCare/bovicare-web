@@ -4,6 +4,107 @@ import Navbar from '../../components/Navbar/Navbar';
 import api from '../../services/api';
 import './Chat.css';
 
+// Component to render markdown-like text with proper formatting
+const MarkdownText = ({ text }) => {
+  if (!text) return null;
+
+  // Helper function to parse and render a line with markdown
+  const parseLine = (line, key) => {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    
+    // Headers (## or ###)
+    if (trimmed.match(/^#{2,3}\s+/)) {
+      const level = trimmed.match(/^#+/)[0].length;
+      const headerText = trimmed.replace(/^#+\s*/, '');
+      const HeaderTag = level === 2 ? 'h2' : 'h3';
+      return React.createElement(HeaderTag, { key, className: "markdown-subheader" }, headerText);
+    }
+    
+    // Lists (- item or * item)
+    if (trimmed.match(/^[-*]\s+/)) {
+      const listText = trimmed.replace(/^[-*]\s+/, '');
+      // Parse bold text in list items
+      const parts = listText.split(/(\*\*[^*]+\*\*)/g);
+      return (
+        <div key={key} className="markdown-list-item">
+          • {parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </div>
+      );
+    }
+    
+    // Paragraphs with potential bold text
+    const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
+    if (parts.length > 1) {
+      return (
+        <p key={key} className="markdown-paragraph">
+          {parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </p>
+      );
+    }
+    
+    // Regular paragraphs
+    return <p key={key} className="markdown-paragraph">{trimmed}</p>;
+  };
+
+  // Split by sections (Resumo and Resposta Detalhada)
+  const sectionRegex = /(\*\*Resumo:\*\*|\*\*Resposta Detalhada:\*\*)/i;
+  const parts = text.split(sectionRegex);
+  
+  const sections = [];
+  let currentSection = null;
+  let currentContent = [];
+
+  parts.forEach((part, idx) => {
+    const isSectionHeader = part.match(/^\*\*Resumo:\*\*$/i) || part.match(/^\*\*Resposta Detalhada:\*\*$/i);
+    
+    if (isSectionHeader) {
+      if (currentSection) {
+        sections.push({ type: currentSection, content: currentContent.join('\n') });
+      }
+      currentSection = part.replace(/\*\*/g, '').replace(':', '').trim();
+      currentContent = [];
+    } else if (currentSection) {
+      currentContent.push(part);
+    } else if (idx === 0 && part.trim()) {
+      // Content before any section
+      sections.push({ type: null, content: part });
+    }
+  });
+
+  if (currentSection) {
+    sections.push({ type: currentSection, content: currentContent.join('\n') });
+  }
+
+  return (
+    <div className="markdown-wrapper">
+      {sections.map((section, idx) => {
+        const lines = section.content.split('\n').filter(line => line.trim() || line === '');
+        const renderedContent = lines.map((line, lineIdx) => parseLine(line, `${idx}-${lineIdx}`)).filter(Boolean);
+        
+        return (
+          <div key={idx} className={`markdown-section ${section.type ? `markdown-${section.type.toLowerCase().replace(/\s+/g, '-')}` : ''}`}>
+            {section.type && (
+              <h2 className="markdown-section-title">{section.type}</h2>
+            )}
+            {renderedContent}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const Chat = () => {
   // Garantir caminho correto para imagens em todos os navegadores
   const publicUrl = process.env.PUBLIC_URL || '';
@@ -105,7 +206,7 @@ const Chat = () => {
               </div>
               <div className="message-content">
                 <div className="message-bubble">
-                  <p>{message.text}</p>
+                  <MarkdownText text={message.text} />
                   {message.sources && message.sources.length > 0 && (
                     <div className="message-sources">
                       <strong>Fontes:</strong>

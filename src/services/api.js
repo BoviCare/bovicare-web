@@ -3,7 +3,7 @@ import axios from 'axios';
 // Configurar a URL base da API
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:5003',
-  timeout: 10000,
+  timeout: 180000, // 180 seconds (3 minutes) - allows time for RAG processing with reranking
   headers: {
     'Content-Type': 'application/json',
   },
