@@ -471,6 +471,19 @@ export const getWeightReport = async () => {
   }
 };
 
+// Função para obter relatório de desempenho (engorda)
+export const getPerformanceReport = async () => {
+  try {
+    const userId = ensureUserId();
+    const url = userId ? `/api/weight/performance-report?user_id=${userId}` : '/api/weight/performance-report';
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao gerar relatório de desempenho:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Erro ao gerar relatório de desempenho');
+  }
+};
+
 // ===== FUNÇÕES PARA GESTÃO DE REBANHOS/FAZENDAS =====
 
 // Função para obter todos os rebanhos

@@ -299,3 +299,266 @@
     gap: 12px;
   }
 }
+
+/* ===== TABS DE RELATÓRIO ===== */
+.report-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0;
+}
+
+.report-tab {
+  padding: 14px 28px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.report-tab:hover {
+  color: #15AABF;
+  background: rgba(21, 170, 191, 0.05);
+}
+
+.report-tab.active {
+  color: #15AABF;
+  border-bottom-color: #15AABF;
+  background: transparent;
+}
+
+/* ===== BOTÕES DE EXPORTAÇÃO ===== */
+.export-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.export-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.export-pdf {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: white;
+}
+
+.export-pdf:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
+}
+
+.export-excel {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: white;
+}
+
+.export-excel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3);
+}
+
+/* ===== RESUMO DE DESEMPENHO ===== */
+.performance-summary {
+  margin-bottom: 32px;
+}
+
+/* ===== TABELA DE DESEMPENHO ===== */
+.performance-table-section {
+  margin-top: 32px;
+}
+
+.performance-table-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.performance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.performance-table thead {
+  background: #2c3e50;
+}
+
+.performance-table thead th {
+  padding: 16px 20px;
+  text-align: center;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  border: none;
+}
+
+.performance-table tbody tr {
+  border-bottom: 1px solid #dee2e6;
+  transition: all 0.15s ease;
+}
+
+.performance-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.performance-table tbody td {
+  padding: 14px 20px;
+  text-align: center;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+/* Cores condicionais por status */
+.performance-row.performance-excellent {
+  background-color: #d4edda !important;
+}
+
+.performance-row.performance-good {
+  background-color: #f8f9fa !important;
+}
+
+.performance-row.performance-good:nth-child(even) {
+  background-color: #ffffff !important;
+}
+
+.performance-row.performance-regular {
+  background-color: #fff3cd !important;
+}
+
+.performance-row.performance-critical {
+  background-color: #f8d7da !important;
+}
+
+.performance-row.performance-nodata {
+  background-color: #e5e7eb !important;
+}
+
+/* Efeito hover nas linhas */
+.performance-table tbody tr:hover {
+  filter: brightness(0.97);
+}
+
+/* Estilo para coluna de ganho */
+.weight-gain {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+/* Estilo para coluna GMD */
+.gmd-value {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 600;
+}
+
+/* Badge de status */
+.performance-status-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.performance-status-badge.performance-excellent {
+  background: #166534;
+  color: white;
+}
+
+.performance-status-badge.performance-good {
+  background: #4b5563;
+  color: white;
+}
+
+.performance-status-badge.performance-regular {
+  background: #92400e;
+  color: white;
+}
+
+.performance-status-badge.performance-critical {
+  background: #b91c1c;
+  color: white;
+}
+
+.performance-status-badge.performance-nodata {
+  background: #6b7280;
+  color: white;
+}
+
+/* ===== RESPONSIVO TABELA DE DESEMPENHO ===== */
+@media (max-width: 1024px) {
+  .performance-table {
+    font-size: 13px;
+  }
+
+  .performance-table thead th,
+  .performance-table tbody td {
+    padding: 12px 14px;
+  }
+
+  .export-buttons {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .report-tabs {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .report-tab {
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    margin-bottom: 0;
+    margin-left: -2px;
+    text-align: left;
+  }
+
+  .report-tab.active {
+    border-left-color: #15AABF;
+    border-bottom-color: transparent;
+  }
+
+  .performance-table-container {
+    overflow-x: auto;
+  }
+
+  .performance-table {
+    min-width: 700px;
+  }
+
+  .export-buttons {
+    flex-direction: column;
+  }
+
+  .export-btn {
+    justify-content: center;
+  }
+}
