@@ -19,6 +19,22 @@ BoviCare é um sistema web completo para gerenciamento de informações relacion
 - [ ] Preparar versão mínima utilizável (MVP)
 - [ ] Melhorar cobertura de testes e validações de fluxo completo
 
+## 🚀 Deployment
+
+Este repositório está configurado com **GitHub Actions** para deploy automático na AWS (EC2).
+
+### Fluxo de Deploy
+1.  Qualquer push na branch `main` dispara o workflow de deploy.
+2.  A aplicação React é construída (build de produção).
+3.  A imagem Docker é construída e enviada para o Amazon ECR.
+4.  O serviço na instância EC2 é atualizado via AWS Systems Manager (SSM).
+
+### Configuração Necessária
+Certifique-se de que as seguintes Secrets estão configuradas no repositório:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_ACCOUNT_ID`
+
 ## 🛠️ Tecnologias Utilizadas
 
 ### Frontend
