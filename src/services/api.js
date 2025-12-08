@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configurar a URL base da API (prefer env var)
-const apiBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5003';
+const apiBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://18.207.95.49:5003';
 
 // Debug: Log da URL base efetiva
 console.log('🔧 API Base URL:', apiBaseURL);
