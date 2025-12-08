@@ -22,6 +22,7 @@ jobs:
     env:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       PROJECT_NAME: bovicare
+      SERVICE_NAME: frontend
 
     steps:
       - name: Checkout the repository
@@ -92,11 +93,18 @@ jobs:
           INSTANCE_ID=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --query "Parameter.Value" --output text)
           echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
 
-      - name: Deploy to EC2 by Restarting Service
+      - name: Deploy to EC2 via SSM
         if: env.INSTANCE_ID != ''
         run: |
           aws ssm send-command \
             --instance-ids "${{ env.INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":["sudo systemctl restart ${{ env.PROJECT_NAME }}.service"]}' \
-            --comment "Restarting service to pull new image ${{ env.IMAGE_VERSION }}"
+            --comment "Deploying ${{ env.SERVICE_NAME }} service" \
+            --parameters commands='[
+              "cd /opt/${{ env.PROJECT_NAME }}",
+              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_HOST }}",
+              "docker-compose pull ${{ env.SERVICE_NAME }}",
+              "docker-compose up -d --no-deps ${{ env.SERVICE_NAME }}",
+              "docker image prune -f"
+            ]' \
+            --output text
