@@ -1,16 +1,18 @@
 import axios from 'axios';
 
-// Configurar a URL base da API
+// Configurar a URL base da API (prefer env var)
+const apiBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5003';
+
+// Debug: Log da URL base efetiva
+console.log('🔧 API Base URL:', apiBaseURL);
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:5003',
+  baseURL: apiBaseURL,
   timeout: 180000, // 180 seconds (3 minutes) - allows time for RAG processing with reranking
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-// Debug: Log da URL base
-console.log('🔧 API Base URL: http://localhost:5003');
 
 // Interceptor para adicionar token de autenticação
 api.interceptors.request.use(
