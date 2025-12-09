@@ -353,7 +353,11 @@ const Dashboard = () => {
               </p>
               {lastUpdated && (
                 <p className="dashboard-last-updated" style={{fontSize: '12px', color: '#6b7280', marginTop: 6}}>
-                  Última atualização: {lastUpdated.toLocaleTimeString()}
+                  Última atualização: {lastUpdated.toLocaleTimeString('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </p>
               )}
             </div>
@@ -393,7 +397,7 @@ const Dashboard = () => {
                       notificationItems.map((item) => {
                         const isRead = readNotifications.includes(item.id);
                         const formattedDate = item.date
-                          ? item.date.toLocaleString()
+                          ? item.date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
                           : item.rawDate || 'Agora';
 
                         return (
@@ -453,7 +457,7 @@ const Dashboard = () => {
                         if (!dt) return 'Sem data';
                         try {
                           const d = new Date(dt);
-                          if (!isNaN(d.getTime())) return d.toLocaleString();
+                          if (!isNaN(d.getTime())) return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
                         } catch (e) {
                           // fallthrough
                         }
@@ -483,7 +487,7 @@ const Dashboard = () => {
                       if (!v) return '—';
                       try {
                         const d = new Date(v);
-                        if (!isNaN(d.getTime())) return d.toLocaleString();
+                        if (!isNaN(d.getTime())) return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
                       } catch (e) {}
                       return String(v);
                     })()}
