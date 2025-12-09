@@ -5,25 +5,43 @@ import './WeightTracking.css';
 const formatDateBr = (dateString) => {
   if (!dateString) return '—';
 
-  const parsed = new Date(dateString);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString('pt-BR', {
-      timeZone: 'America/Sao_Paulo'
-    });
-  }
-
+  // 1. Check for ISO format first (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
     return `${d}/${m}/${y}`;
   }
 
-  const usMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(dateString);
-  if (usMatch) {
-    const [, mm, dd, yy] = usMatch;
-    const year = yy.length === 2 ? `20${yy}` : yy;
-    const month = mm.padStart(2, '0');
-    const day = dd.padStart(2, '0');
+  // 2. Check for slash-separated dates (could be DD/MM/YYYY or MM/DD/YYYY)
+  const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(dateString);
+  if (slashMatch) {
+    const [, first, second, yearPart] = slashMatch;
+    const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
+    
+    // If first number > 12, it must be DD/MM/YYYY (already correct format)
+    // If second number > 12, it must be MM/DD/YYYY (needs conversion)
+    // If both <= 12, we assume MM/DD/YYYY (US format) and convert to DD/MM/YYYY
+    const firstNum = parseInt(first, 10);
+    const secondNum = parseInt(second, 10);
+    
+    if (firstNum > 12) {
+      // Already DD/MM/YYYY format
+      return `${first.padStart(2, '0')}/${second.padStart(2, '0')}/${year}`;
+    } else if (secondNum > 12) {
+      // MM/DD/YYYY format, convert to DD/MM/YYYY
+      return `${second.padStart(2, '0')}/${first.padStart(2, '0')}/${year}`;
+    } else {
+      // Ambiguous case - assume it's MM/DD/YYYY (US format) and convert
+      return `${second.padStart(2, '0')}/${first.padStart(2, '0')}/${year}`;
+    }
+  }
+
+  // 3. Try parsing as Date object (for other formats like timestamps)
+  const parsed = new Date(dateString);
+  if (!Number.isNaN(parsed.getTime())) {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
     return `${day}/${month}/${year}`;
   }
 
