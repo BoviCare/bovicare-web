@@ -8,21 +8,20 @@ const formatDateBr = (dateString) => {
   const parsed = new Date(dateString);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toLocaleDateString('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      year: '2-digit'
+      timeZone: 'America/Sao_Paulo'
     });
   }
 
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
-    return `${d}/${m}/${y.slice(-2)}`;
+    return `${d}/${m}/${y}`;
   }
 
   const usMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(dateString);
   if (usMatch) {
     const [, mm, dd, yy] = usMatch;
-    const year = yy.length === 2 ? yy : yy.slice(-2);
+    const year = yy.length === 2 ? `20${yy}` : yy;
     const month = mm.padStart(2, '0');
     const day = dd.padStart(2, '0');
     return `${day}/${month}/${year}`;
