@@ -5,38 +5,38 @@ import './WeightTracking.css';
 const formatDateBr = (dateString) => {
   if (!dateString) return '—';
 
-  // 1. Check for ISO format first (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+  // 1. Check for ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS) - convert to DD/MM/YYYY
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
     return `${d}/${m}/${y}`;
   }
 
-  // 2. Check for slash-separated dates (could be DD/MM/YYYY or MM/DD/YYYY)
+  // 2. Check for slash format (DD/MM/YYYY or MM/DD/YYYY)
+  // Backend already returns DD/MM/YYYY, so if it matches that pattern, return as-is
   const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(dateString);
   if (slashMatch) {
     const [, first, second, yearPart] = slashMatch;
-    const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
-    
-    // If first number > 12, it must be DD/MM/YYYY (already correct format)
-    // If second number > 12, it must be MM/DD/YYYY (needs conversion)
-    // If both <= 12, we assume MM/DD/YYYY (US format) and convert to DD/MM/YYYY
     const firstNum = parseInt(first, 10);
     const secondNum = parseInt(second, 10);
+    const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
     
+    // If first number > 12, it's definitely DD/MM/YYYY - return as-is (formatted)
+    // If second number > 12, it's definitely MM/DD/YYYY - needs swap
+    // If both <= 12: backend sends DD/MM/YYYY, so return as-is
     if (firstNum > 12) {
-      // Already DD/MM/YYYY format
+      // Already DD/MM/YYYY
       return `${first.padStart(2, '0')}/${second.padStart(2, '0')}/${year}`;
     } else if (secondNum > 12) {
-      // MM/DD/YYYY format, convert to DD/MM/YYYY
+      // MM/DD/YYYY - swap to DD/MM/YYYY
       return `${second.padStart(2, '0')}/${first.padStart(2, '0')}/${year}`;
     } else {
-      // Ambiguous case - assume it's MM/DD/YYYY (US format) and convert
-      return `${second.padStart(2, '0')}/${first.padStart(2, '0')}/${year}`;
+      // Both <= 12: assume it's already DD/MM/YYYY (from backend)
+      return `${first.padStart(2, '0')}/${second.padStart(2, '0')}/${year}`;
     }
   }
 
-  // 3. Try parsing as Date object (for other formats like timestamps)
+  // 3. Fallback: try parsing with Date object (for timestamps, etc.)
   const parsed = new Date(dateString);
   if (!Number.isNaN(parsed.getTime())) {
     const day = String(parsed.getDate()).padStart(2, '0');
