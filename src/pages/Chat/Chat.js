@@ -28,7 +28,7 @@ const MarkdownText = ({ text }) => {
       const parts = listText.split(/(\*\*[^*]+\*\*)/g);
       return (
         <div key={key} className="markdown-list-item">
-          • {parts.map((part, pIdx) => {
+          {parts.map((part, pIdx) => {
             if (part.startsWith('**') && part.endsWith('**')) {
               return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
             }

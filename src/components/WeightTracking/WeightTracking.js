@@ -669,13 +669,16 @@ const WeightTracking = () => {
                         <div className="weight-line-chart">
                           <div className="weight-line-chart-y-axis">
                             {(() => {
-                              const weights = mainCattle.chartData.map((p) => p.weight);
+                              // Reverse data for chart: older dates first (left to right)
+                              const chartDataReversed = [...mainCattle.chartData].reverse();
+                              const weights = chartDataReversed.map((p) => p.weight);
                               const minWeight = Math.min(...weights);
                               const maxWeight = Math.max(...weights);
                               const range = maxWeight - minWeight;
                               const step = range / 4 || 1;
 
-                              return [4, 3, 2, 1, 0].map((i) => {
+                              // Y axis labels: max at top (i=0), min at bottom (i=4)
+                              return [0, 1, 2, 3, 4].map((i) => {
                                 const value = Number((maxWeight - step * i).toFixed(1));
                                 return (
                                   <div key={i} className="weight-line-chart-scale">
@@ -686,66 +689,71 @@ const WeightTracking = () => {
                             })()}
                           </div>
                           <div className="weight-line-chart-content">
-                            <svg className="weight-line-chart-svg" viewBox="0 0 400 200">
-                              <defs>
-                                <pattern id="grid" width="80" height="40" patternUnits="userSpaceOnUse">
-                                  <path d="M 80 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
-                                </pattern>
-                              </defs>
-                              <rect width="100%" height="100%" fill="url(#grid)" />
+                            {(() => {
+                              // Reverse data for chart: older dates first (left to right)
+                              const chartDataReversed = [...mainCattle.chartData].reverse();
+                              const weights = chartDataReversed.map((p) => p.weight);
+                              const minWeight = Math.min(...weights);
+                              const maxWeight = Math.max(...weights);
+                              const weightRange = maxWeight - minWeight;
 
-                              <polyline
-                                points={mainCattle.chartData
-                                  .map((point, index) => {
-                                    const x = index * 80 + 40;
-                                    const weights = mainCattle.chartData.map((p) => p.weight);
-                                    const minWeight = Math.min(...weights);
-                                    const maxWeight = Math.max(...weights);
-                                    const weightRange = maxWeight - minWeight;
-                                    const y = weightRange > 0 ? 180 - ((point.weight - minWeight) / weightRange) * 160 : 90;
-                                    return `${x},${y}`;
-                                  })
-                                  .join(' ')}
-                                fill="none"
-                                stroke="#15AABF"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
+                              return (
+                                <>
+                                  <svg className="weight-line-chart-svg" viewBox="0 0 400 200">
+                                    <defs>
+                                      <pattern id="grid" width="80" height="40" patternUnits="userSpaceOnUse">
+                                        <path d="M 80 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
+                                      </pattern>
+                                    </defs>
+                                    <rect width="100%" height="100%" fill="url(#grid)" />
 
-                              {mainCattle.chartData.map((point, index) => {
-                                const x = index * 80 + 40;
-                                const weights = mainCattle.chartData.map((p) => p.weight);
-                                const minWeight = Math.min(...weights);
-                                const maxWeight = Math.max(...weights);
-                                const weightRange = maxWeight - minWeight;
-                                const y = weightRange > 0 ? 180 - ((point.weight - minWeight) / weightRange) * 160 : 90;
+                                    <polyline
+                                      points={chartDataReversed
+                                        .map((point, index) => {
+                                          const x = index * 80 + 40;
+                                          const y = weightRange > 0 ? 180 - ((point.weight - minWeight) / weightRange) * 160 : 90;
+                                          return `${x},${y}`;
+                                        })
+                                        .join(' ')}
+                                      fill="none"
+                                      stroke="#15AABF"
+                                      strokeWidth="3"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
 
-                                return (
-                                  <g key={index}>
-                                    <circle cx={x} cy={y} r="6" fill="white" stroke="#15AABF" strokeWidth="2" />
-                                    <circle cx={x} cy={y} r="3" fill="#15AABF" />
-                                    <text
-                                      x={x}
-                                      y={y - 12}
-                                      textAnchor="middle"
-                                      fontSize="10"
-                                      fill="#2c3e50"
-                                      fontWeight="600"
-                                    >
-                                      {point.weight}kg
-                                    </text>
-                                  </g>
-                                );
-                              })}
-                            </svg>
-                            <div className="weight-line-chart-x-labels">
-                              {mainCattle.chartData.map((point, index) => (
-                                <div key={index} className="weight-line-chart-x-label">
-                                  {point.date}
-                                </div>
-                              ))}
-                            </div>
+                                    {chartDataReversed.map((point, index) => {
+                                      const x = index * 80 + 40;
+                                      const y = weightRange > 0 ? 180 - ((point.weight - minWeight) / weightRange) * 160 : 90;
+
+                                      return (
+                                        <g key={index}>
+                                          <circle cx={x} cy={y} r="6" fill="white" stroke="#15AABF" strokeWidth="2" />
+                                          <circle cx={x} cy={y} r="3" fill="#15AABF" />
+                                          <text
+                                            x={x}
+                                            y={y - 12}
+                                            textAnchor="middle"
+                                            fontSize="10"
+                                            fill="#2c3e50"
+                                            fontWeight="600"
+                                          >
+                                            {point.weight}kg
+                                          </text>
+                                        </g>
+                                      );
+                                    })}
+                                  </svg>
+                                  <div className="weight-line-chart-x-labels">
+                                    {chartDataReversed.map((point, index) => (
+                                      <div key={index} className="weight-line-chart-x-label">
+                                        {point.date}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
