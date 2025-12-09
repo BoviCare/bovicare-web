@@ -811,6 +811,7 @@ const WeightTracking = () => {
                 <label className="weight-tracking-form-label">Data</label>
                 <input
                   type="date"
+                  lang="pt-BR"
                   value={newWeight.date}
                   onChange={(e) => setNewWeight({ ...newWeight, date: e.target.value })}
                   className="weight-tracking-form-input"
@@ -845,6 +846,7 @@ const WeightTracking = () => {
                 <div className="weight-filter-date-range">
                   <input
                     type="date"
+                    lang="pt-BR"
                     value={filters.startDate}
                     onChange={(e) => handleNumericFilterChange('startDate', e.target.value)}
                     className="weight-filter-date-input"
@@ -852,6 +854,7 @@ const WeightTracking = () => {
                   <span className="weight-filter-date-separator">—</span>
                   <input
                     type="date"
+                    lang="pt-BR"
                     value={filters.endDate}
                     onChange={(e) => handleNumericFilterChange('endDate', e.target.value)}
                     className="weight-filter-date-input"
