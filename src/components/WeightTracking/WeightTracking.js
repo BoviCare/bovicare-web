@@ -2,6 +2,32 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { getCattle, addWeight, getWeightHistory, getWeightReport, getHerds, filterCattle } from '../../services/api';
 import './WeightTracking.css';
 
+const formatDateBr = (dateString) => {
+  if (!dateString) return '—';
+
+  const parsed = new Date(dateString);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  }
+
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return `${d}/${m}/${y}`;
+  }
+
+  const usMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(dateString);
+  if (usMatch) {
+    const [, mm, dd, yy] = usMatch;
+    const year = yy.length === 2 ? `20${yy}` : yy;
+    const month = mm.padStart(2, '0');
+    const day = dd.padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+
+  return dateString;
+};
+
 const getInitialFilters = () => {
   const today = new Date().toISOString().split('T')[0];
   return {
@@ -87,20 +113,13 @@ const WeightTracking = () => {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  const formatDateLabel = (dateString) => {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) {
-      return dateString;
-    }
-    return date.toLocaleDateString('pt-BR');
-  };
+  const formatDateLabel = (dateString) => formatDateBr(dateString);
 
   const createFallbackHistory = (weight) => {
     const numericWeight = toNumber(weight) ?? 0;
     return [
       {
-        date: new Date().toLocaleDateString('pt-BR'),
+        date: formatDateBr(new Date().toISOString()),
         weight: Number(numericWeight.toFixed(1))
       }
     ];
