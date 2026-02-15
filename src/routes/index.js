@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
+import { ChatProvider } from '../contexts/ChatContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import Login from "../components/auth/login/login";
 import ForgotSelect from "../components/auth/forgot/ForgotSelect";
@@ -18,6 +19,7 @@ import ReportCattle from '../pages/ReportCattle/ReportCattle';
 const RoutesApp = () => {
     return (
         <AuthProvider>
+            <ChatProvider>
             <BrowserRouter>
                 <Routes>
                     {/* Rotas públicas */}
@@ -78,6 +80,7 @@ const RoutesApp = () => {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </BrowserRouter>
+            </ChatProvider>
         </AuthProvider>
     );
 };

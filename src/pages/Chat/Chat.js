@@ -1,260 +1,269 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaUserMd, FaPaperPlane, FaRobot } from 'react-icons/fa';
+import { FaUserMd, FaPaperPlane, FaPlus, FaTrash } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import Navbar from '../../components/Navbar/Navbar';
-import api from '../../services/api';
+import { useChat } from '../../contexts/ChatContext';
 import './Chat.css';
 
-// Component to render markdown-like text with proper formatting
-const MarkdownText = ({ text }) => {
-  if (!text) return null;
-
-  // Helper function to parse and render a line with markdown
-  const parseLine = (line, key) => {
-    const trimmed = line.trim();
-    if (!trimmed) return null;
-    
-    // Headers (## or ###)
-    if (trimmed.match(/^#{2,3}\s+/)) {
-      const level = trimmed.match(/^#+/)[0].length;
-      const headerText = trimmed.replace(/^#+\s*/, '');
-      const HeaderTag = level === 2 ? 'h2' : 'h3';
-      return React.createElement(HeaderTag, { key, className: "markdown-subheader" }, headerText);
-    }
-    
-    // Lists (- item or * item)
-    if (trimmed.match(/^[-*]\s+/)) {
-      const listText = trimmed.replace(/^[-*]\s+/, '');
-      // Parse bold text in list items
-      const parts = listText.split(/(\*\*[^*]+\*\*)/g);
-      return (
-        <div key={key} className="markdown-list-item">
-          {parts.map((part, pIdx) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
-            }
-            return part;
-          })}
-        </div>
-      );
-    }
-    
-    // Paragraphs with potential bold text
-    const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
-    if (parts.length > 1) {
-      return (
-        <p key={key} className="markdown-paragraph">
-          {parts.map((part, pIdx) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
-            }
-            return part;
-          })}
-        </p>
-      );
-    }
-    
-    // Regular paragraphs
-    return <p key={key} className="markdown-paragraph">{trimmed}</p>;
-  };
-
-  // Split by sections (Resumo and Resposta Detalhada)
-  const sectionRegex = /(\*\*Resumo:\*\*|\*\*Resposta Detalhada:\*\*)/i;
-  const parts = text.split(sectionRegex);
-  
-  const sections = [];
-  let currentSection = null;
-  let currentContent = [];
-
-  parts.forEach((part, idx) => {
-    const isSectionHeader = part.match(/^\*\*Resumo:\*\*$/i) || part.match(/^\*\*Resposta Detalhada:\*\*$/i);
-    
-    if (isSectionHeader) {
-      if (currentSection) {
-        sections.push({ type: currentSection, content: currentContent.join('\n') });
-      }
-      currentSection = part.replace(/\*\*/g, '').replace(':', '').trim();
-      currentContent = [];
-    } else if (currentSection) {
-      currentContent.push(part);
-    } else if (idx === 0 && part.trim()) {
-      // Content before any section
-      sections.push({ type: null, content: part });
-    }
-  });
-
-  if (currentSection) {
-    sections.push({ type: currentSection, content: currentContent.join('\n') });
-  }
-
-  return (
-    <div className="markdown-wrapper">
-      {sections.map((section, idx) => {
-        const lines = section.content.split('\n').filter(line => line.trim() || line === '');
-        const renderedContent = lines.map((line, lineIdx) => parseLine(line, `${idx}-${lineIdx}`)).filter(Boolean);
-        
-        return (
-          <div key={idx} className={`markdown-section ${section.type ? `markdown-${section.type.toLowerCase().replace(/\s+/g, '-')}` : ''}`}>
-            {section.type && (
-              <h2 className="markdown-section-title">{section.type}</h2>
-            )}
-            {renderedContent}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+const SUGGESTIONS = [
+  'Notei abortos no terço final da gestação e diminuição na produção de leite. Qual doença pode estar afetando meu rebanho?',
+  'Como prevenir e tratar a brucelose em bovinos?',
+  'Quais vacinas são obrigatórias para o rebanho?',
+];
 
 const Chat = () => {
-  // Garantir caminho correto para imagens em todos os navegadores
   const publicUrl = process.env.PUBLIC_URL || '';
   const assistantImagePath = publicUrl ? `${publicUrl}/images/assistenteBovicare.jpg` : '/images/assistenteBovicare.jpg';
-  
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Olá! Sou o assistente virtual do BoviCare. Como posso ajudá-lo hoje com questões sobre seu rebanho?",
-      sender: 'assistant',
-      timestamp: new Date()
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+
+  const {
+    conversations,
+    currentConversationId,
+    messages,
+    isLoading,
+    setCurrentConversationId,
+    resetToInitialState,
+    deleteConversation,
+    sendMessage,
+  } = useChat();
+
+  const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+  const handleNewConversation = () => {
+    resetToInitialState();
+    setInputValue('');
+  };
 
-    const userMessage = {
-      id: messages.length + 1,
-      text: inputMessage,
-      sender: 'user',
-      timestamp: new Date()
-    };
+  const handleConversationChange = (e) => {
+    const id = e.target.value;
+    setCurrentConversationId(id === '' ? null : id);
+    setInputValue('');
+  };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
+  const handleDeleteConversation = () => {
+    if (!currentConversationId) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta conversa?')) return;
+    deleteConversation(currentConversationId);
+    setInputValue('');
+  };
 
-    try {
-      const { data } = await api.post('/api/chat/diagnose', {
-        message: userMessage.text
-      });
+  const handleSendMessage = (e) => {
+    e?.preventDefault();
+    if (!inputValue.trim() || isLoading) return;
+    const query = inputValue.trim();
+    setInputValue('');
+    sendMessage(query);
+  };
 
-      const assistantMessage = {
-        id: userMessage.id + 1,
-        text: data?.reply || 'Não consegui gerar uma resposta no momento.',
-        sender: 'assistant',
-        timestamp: new Date(),
-        sources: data?.sources || []
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const assistantMessage = {
-        id: userMessage.id + 1,
-        text: 'Não consegui obter uma resposta. Tente novamente em instantes.',
-        sender: 'assistant',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } finally {
-      setIsLoading(false);
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  const formatTime = (timestamp) => {
-    return timestamp.toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  const handleSuggestionClick = (text) => {
+    setInputValue(text);
+  };
+
+  const formatTimestamp = (timestamp) => {
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: ptBR });
   };
 
   return (
     <div className="chat-container">
       <Navbar />
       <div className="chat-main">
-        <div className="chat-header">
-          <div className="chat-header-content">
-            <div className="assistant-avatar">
-              <img src={assistantImagePath} alt="Assistente BoviCare" />
-            </div>
-            <div className="chat-header-info">
-              <h1>Chat</h1>
-              <p>Assistente Virtual BoviCare</p>
-            </div>
+        <div className="chat-header chat-header-toolbar">
+          <div className="chat-header-controls">
+            <select
+              className="chat-select"
+              value={currentConversationId || ''}
+              onChange={handleConversationChange}
+            >
+              <option value="">Selecione uma conversa</option>
+              {conversations.map((conv) => (
+                <option key={conv.id} value={conv.id}>
+                  {conv.title}
+                </option>
+              ))}
+            </select>
+            {currentConversationId && (
+              <button
+                type="button"
+                className="chat-btn chat-btn-outline chat-btn-danger"
+                onClick={handleDeleteConversation}
+                title="Excluir conversa"
+              >
+                <FaTrash className="chat-btn-icon" />
+                Excluir
+              </button>
+            )}
+            <button
+              type="button"
+              className="chat-btn chat-btn-outline"
+              onClick={handleNewConversation}
+              title="Nova conversa"
+            >
+              <FaPlus className="chat-btn-icon" />
+              Nova Conversa
+            </button>
           </div>
         </div>
 
-        <div className="chat-messages">
-          {messages.map((message) => (
-            <div 
-              key={message.id} 
-              className={`message ${message.sender === 'user' ? 'user-message' : 'assistant-message'}`}
-            >
-              <div className="message-avatar">
-                {message.sender === 'user' ? <FaUserMd /> : <img src={assistantImagePath} alt="Assistente" />}
-              </div>
-              <div className="message-content">
-                <div className="message-bubble">
-                  <MarkdownText text={message.text} />
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="message-sources">
-                      <strong>Fontes:</strong>
-                      <div className="sources-tags">
-                        {message.sources.map((source, idx) => (
-                          <span key={idx} className="source-tag">
-                            {source.disease_name || 'Fonte'}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <span className="message-time">{formatTime(message.timestamp)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-          
-          {isLoading && (
-            <div className="message assistant-message">
-              <div className="message-avatar">
-                <img src={assistantImagePath} alt="Assistente" />
-              </div>
-              <div className="message-content">
-                <div className="message-bubble loading">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+        <div ref={messagesContainerRef} className="chat-messages">
+          {messages.length === 0 ? (
+            <>
+              {!isLoading ? (
+                <div className="chat-empty-state">
+                  <div className="chat-empty-content">
+                    <h2 className="chat-empty-title">Olá! Sou seu assistente de saúde animal.</h2>
+                    <p className="chat-empty-subtitle">Como posso ajudá-lo hoje com questões sobre seu rebanho?</p>
+                  </div>
+                  <div className="chat-suggestions">
+                    {SUGGESTIONS.map((text, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="chat-suggestion-badge"
+                        onClick={() => handleSuggestionClick(text)}
+                      >
+                        {text.length > 60 ? `${text.slice(0, 60)}...` : text}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-            </div>
+              ) : (
+                <div className="message assistant-message">
+                  <div className="message-avatar">
+                    <img src={assistantImagePath} alt="Assistente" />
+                  </div>
+                  <div className="message-content">
+                    <div className="message-bubble loading">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </>
+          ) : (
+            <>
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+                >
+                  <div className="message-avatar">
+                    {message.role === 'user' ? (
+                      <FaUserMd />
+                    ) : (
+                      <img src={assistantImagePath} alt="Assistente" />
+                    )}
+                  </div>
+                  <div className="message-content">
+                    <div className="message-bubble">
+                      {message.role === 'assistant' ? (
+                        <div className="markdown-wrapper">
+                          <ReactMarkdown
+                            components={{
+                              h2: ({ children, ...props }) => <h2 className="markdown-subheader" {...props}>{children}</h2>,
+                              h3: ({ children, ...props }) => <h3 className="markdown-subheader" {...props}>{children}</h3>,
+                              p: (props) => <p className="markdown-paragraph" {...props} />,
+                              ul: (props) => <ul className="markdown-list" {...props} />,
+                              ol: (props) => <ol className="markdown-list" {...props} />,
+                              li: (props) => <li className="markdown-list-item" {...props} />,
+                              strong: (props) => <strong {...props} />,
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="markdown-paragraph">{message.content}</p>
+                      )}
+                      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                        <div className="message-sources">
+                          <strong>Fontes:</strong>
+                          <div className="sources-tags">
+                            {message.sources.map((source, idx) => (
+                              <span
+                                key={idx}
+                                className="source-tag"
+                                title={source.content_preview || source.disease_name}
+                              >
+                                {source.disease_name || 'Fonte'}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <span className="message-time">{formatTimestamp(message.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="message assistant-message">
+                  <div className="message-avatar">
+                    <img src={assistantImagePath} alt="Assistente" />
+                  </div>
+                  <div className="message-content">
+                    <div className="message-bubble loading">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         <div className="chat-input">
-          <form onSubmit={handleSendMessage}>
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Envie uma mensagem"
+          <form onSubmit={handleSendMessage} className="chat-input-form">
+            <textarea
+              className="chat-textarea message-input"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite sua mensagem..."
+              rows={1}
               disabled={isLoading}
-              className="message-input"
             />
+            <button
+              type="submit"
+              className="chat-send-btn"
+              disabled={!inputValue.trim() || isLoading}
+              title="Enviar"
+            >
+              {isLoading ? (
+                <span className="chat-loading-spinner" />
+              ) : (
+                <FaPaperPlane className="chat-send-icon" />
+              )}
+            </button>
           </form>
+          <p className="chat-disclaimer">O Chatbot pode cometer erros. Confira informações importantes.</p>
         </div>
       </div>
     </div>
