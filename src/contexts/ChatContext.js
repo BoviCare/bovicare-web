@@ -112,10 +112,14 @@ export function ChatProvider({ children }) {
       }
       refreshConversations();
     } catch (error) {
+      const d = error.response?.data;
+      let errMsg = d?.message || d?.error;
+      if (!errMsg && typeof d === 'string' && d.length < 500) errMsg = d;
+      if (!errMsg) errMsg = error.message || 'Não consegui obter uma resposta. Tente novamente em instantes.';
       const errorMessage = {
         id: generateMessageId(),
         role: 'assistant',
-        content: 'Não consegui obter uma resposta. Tente novamente em instantes.',
+        content: errMsg,
         created_at: new Date().toISOString(),
         sources: [],
       };
