@@ -51,11 +51,16 @@ const Chat = () => {
     setInputValue('');
   };
 
-  const handleDeleteConversation = () => {
+  const handleDeleteConversation = async () => {
     if (!currentConversationId) return;
     if (!window.confirm('Tem certeza que deseja excluir esta conversa?')) return;
-    deleteConversation(currentConversationId);
-    setInputValue('');
+    try {
+      await deleteConversation(currentConversationId);
+      setInputValue('');
+    } catch (err) {
+      console.error('Erro ao excluir conversa:', err);
+      window.alert('Não foi possível excluir a conversa. Tente novamente.');
+    }
   };
 
   const handleSendMessage = (e) => {

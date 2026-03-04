@@ -640,5 +640,58 @@ export const getUserById = async (userId) => {
   }
 };
 
+// ===== CHAT / CONVERSATION API (backend memory) =====
+
+export const getConversations = async () => {
+  try {
+    const response = await api.get('/api/chat/conversations');
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao listar conversas:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Erro ao listar conversas');
+  }
+};
+
+export const createConversation = async (title = 'Nova conversa') => {
+  try {
+    const response = await api.post('/api/chat/conversations', { title });
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao criar conversa:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Erro ao criar conversa');
+  }
+};
+
+export const getConversationMessages = async (conversationId) => {
+  try {
+    const response = await api.get(`/api/chat/conversations/${conversationId}/messages`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao carregar mensagens:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Erro ao carregar mensagens');
+  }
+};
+
+export const deleteConversation = async (conversationId) => {
+  try {
+    await api.delete(`/api/chat/conversations/${conversationId}`);
+  } catch (error) {
+    console.error('Erro ao excluir conversa:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Erro ao excluir conversa');
+  }
+};
+
+export const sendChatMessage = async (query, conversationId = null) => {
+  try {
+    const payload = { query };
+    if (conversationId) payload.conversation_id = conversationId;
+    const response = await api.post('/api/chat/diagnose', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao enviar mensagem:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 // Exportar a instância do axios para uso direto se necessário
 export default api;

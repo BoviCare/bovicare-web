@@ -1,38 +1,35 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import api from '../services/api';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import {
+  getConversations,
+  createConversation as apiCreateConversation,
+  getConversationMessages,
+  deleteConversation as apiDeleteConversation,
+  sendChatMessage,
+} from '../services/api';
 
-const STORAGE_KEY = 'bovicare_chat_conversations';
-
-const generateId = () => `conv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 const generateMessageId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-const loadFromStorage = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.warn('Failed to load chat conversations from localStorage', e);
-  }
-  return [];
-};
-
-const saveToStorage = (conversations) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
-  } catch (e) {
-    console.warn('Failed to save chat conversations to localStorage', e);
-  }
-};
 
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
-  const [conversations, setConversations] = useState(loadFromStorage);
+  const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const refreshConversations = useCallback(async () => {
+    try {
+      const list = await getConversations();
+      setConversations(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.warn('Failed to refresh conversations:', err);
+      setConversations([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshConversations();
+  }, [refreshConversations]);
 
   const resetToInitialState = useCallback(() => {
     setCurrentConversationId(null);
@@ -40,45 +37,45 @@ export function ChatProvider({ children }) {
     setIsLoading(false);
   }, []);
 
-  const createConversation = useCallback((title = 'Nova Conversa') => {
-    const id = generateId();
-    const conv = {
-      id,
-      title,
-      messages: [],
-      lastMessageAt: new Date().toISOString(),
-    };
-    setConversations((prev) => {
-      const next = [conv, ...prev];
-      saveToStorage(next);
-      return next;
-    });
-    setCurrentConversationId(id);
-    setMessages([]);
-    return id;
+  const createConversation = useCallback(async (title = 'Nova conversa') => {
+    try {
+      const conv = await apiCreateConversation(title);
+      setConversations((prev) => [conv, ...prev]);
+      setCurrentConversationId(conv.id);
+      setMessages([]);
+      return conv.id;
+    } catch (err) {
+      console.error('Failed to create conversation:', err);
+      throw err;
+    }
   }, []);
 
-  const setCurrentConversationIdHandler = useCallback((id) => {
+  const setCurrentConversationIdHandler = useCallback(async (id) => {
     if (!id) {
       setCurrentConversationId(null);
       setMessages([]);
       return;
     }
-    const conv = conversations.find((c) => c.id === id);
-    if (conv) {
-      setCurrentConversationId(id);
-      setMessages(conv.messages || []);
+    setCurrentConversationId(id);
+    try {
+      const msgs = await getConversationMessages(id);
+      setMessages(Array.isArray(msgs) ? msgs : []);
+    } catch (err) {
+      console.warn('Failed to load messages:', err);
+      setMessages([]);
     }
-  }, [conversations]);
+  }, []);
 
-  const deleteConversation = useCallback((conversationId) => {
-    setConversations((prev) => {
-      const next = prev.filter((c) => c.id !== conversationId);
-      saveToStorage(next);
-      return next;
-    });
-    if (conversationId === currentConversationId) {
-      resetToInitialState();
+  const deleteConversation = useCallback(async (conversationId) => {
+    try {
+      await apiDeleteConversation(conversationId);
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (conversationId === currentConversationId) {
+        resetToInitialState();
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      throw err;
     }
   }, [currentConversationId, resetToInitialState]);
 
@@ -86,7 +83,6 @@ export function ChatProvider({ children }) {
     if (!query?.trim() || isLoading) return;
 
     const isNewConversation = !currentConversationId;
-    const convId = currentConversationId || createConversation();
 
     const userMessage = {
       id: generateMessageId(),
@@ -98,23 +94,11 @@ export function ChatProvider({ children }) {
     setMessages((prev) => (isNewConversation ? [userMessage] : [...prev, userMessage]));
     setIsLoading(true);
 
-    setConversations((prev) => {
-      const updated = prev.map((c) => {
-        if (c.id !== convId) return c;
-        const msgs = [...(c.messages || []), userMessage];
-        return { ...c, messages: msgs, lastMessageAt: userMessage.created_at };
-      });
-      saveToStorage(updated);
-      return updated;
-    });
-
     try {
-      const { data } = await api.post('/api/chat/diagnose', {
-        message: query.trim(),
-      });
+      const data = await sendChatMessage(query.trim(), currentConversationId || undefined);
 
       const assistantMessage = {
-        id: generateMessageId(),
+        id: data.conversation_id ? `${data.conversation_id}-a` : generateMessageId(),
         role: 'assistant',
         content: data?.reply || 'Não consegui gerar uma resposta no momento.',
         created_at: new Date().toISOString(),
@@ -123,18 +107,10 @@ export function ChatProvider({ children }) {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      setConversations((prev) => {
-        const updated = prev.map((c) => {
-          if (c.id !== convId) return c;
-          const msgs = [...(c.messages || []), userMessage, assistantMessage];
-          const newTitle = c.title === 'Nova Conversa'
-            ? (query.trim().slice(0, 40) + (query.trim().length > 40 ? '...' : ''))
-            : c.title;
-          return { ...c, title: newTitle, messages: msgs, lastMessageAt: assistantMessage.created_at };
-        });
-        saveToStorage(updated);
-        return updated;
-      });
+      if (isNewConversation && data.conversation_id) {
+        setCurrentConversationId(data.conversation_id);
+      }
+      refreshConversations();
     } catch (error) {
       const errorMessage = {
         id: generateMessageId(),
@@ -144,20 +120,10 @@ export function ChatProvider({ children }) {
         sources: [],
       };
       setMessages((prev) => [...prev, errorMessage]);
-      setConversations((prev) => {
-        const conv = prev.find((c) => c.id === convId);
-        if (!conv) return prev;
-        const msgs = [...(conv.messages || []), userMessage, errorMessage];
-        const updated = prev.map((c) =>
-          c.id === convId ? { ...c, messages: msgs, lastMessageAt: errorMessage.created_at } : c
-        );
-        saveToStorage(updated);
-        return updated;
-      });
     } finally {
       setIsLoading(false);
     }
-  }, [currentConversationId, isLoading, createConversation]);
+  }, [currentConversationId, isLoading, refreshConversations]);
 
   const value = {
     conversations,
@@ -169,6 +135,7 @@ export function ChatProvider({ children }) {
     createConversation,
     deleteConversation,
     sendMessage,
+    refreshConversations,
   };
 
   return (
