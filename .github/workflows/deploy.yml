@@ -1,110 +1,88 @@
-name: "Deploy BoviCare Web"
+name: Deploy BoviCare Web
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write # Required for aws-actions/configure-aws-credentials
-
-env:
-  AWS_REGION: us-east-1
-  ENV_NAME: production
+  id-token: write
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+    if: github.event_name == 'push'
+    environment: ${{ github.ref_name }}
+
     env:
+      AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      GIT_SHA: ${{ github.sha }}
+      GIT_BRANCH: ${{ github.ref_name }}
       PROJECT_NAME: bovicare
       SERVICE_NAME: frontend
+      ECR_REPOSITORY: bovicare-web
+      ENV_NAME: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
-
-      - name: Get Docker Image Tag
-        id: docker_image_tag
-        run: |
-          echo "IMAGE_VERSION=prod-${{ github.sha }}" >> $GITHUB_ENV
-
-      - name: Set ECR Environment Variables
-        run: |
-          ECR_REPO_NAME="${{ env.PROJECT_NAME }}-web"
-          ECR_HOST="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          echo "ECR_REPO_NAME=${ECR_REPO_NAME}" >> $GITHUB_ENV
-          echo "ECR_HOST=${ECR_HOST}" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GithubActionsEcrPushRole
-          role-external-id: github-actions-ecr-push
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsDeployRole
+          role-external-id: github-actions-cicd-user
           role-duration-seconds: 900
           role-skip-session-tagging: true
 
-      - name: Build Docker Image
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          GIT_SSH_KEY: ${{ secrets.GIT_SSH_KEY }}
         run: |
-          # Setup SSH agent for Docker build (if GIT_SSH_KEY is present)
-          if [ -n "${{ secrets.GIT_SSH_KEY }}" ]; then
+          if [ -n "${GIT_SSH_KEY:-}" ]; then
             eval "$(ssh-agent -s)"
-            echo "${{ secrets.GIT_SSH_KEY }}" | ssh-add -
-            SSH_ARGS="--ssh default"
-          else
-            SSH_ARGS=""
+            echo "$GIT_SSH_KEY" | ssh-add -
+            export DOCKER_BUILDKIT=1
+            export DOCKER_BUILD_EXTRA="--ssh default"
           fi
-          
-          docker build \
-            $SSH_ARGS \
-            --platform linux/amd64 \
-            --provenance false \
-            -f Dockerfile \
-            -t ${{ env.ECR_REPO_NAME }}:${{ env.IMAGE_VERSION }} \
-            .
-
-      - name: Docker Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Docker Tag
-        run: docker tag ${{ env.ECR_REPO_NAME }}:${{ env.IMAGE_VERSION }} ${{ env.ECR_HOST }}/${{ env.ECR_REPO_NAME }}:${{ env.IMAGE_VERSION }}
-
-      - name: Push Docker Image to ECR
-        run: |
-          docker push ${{ env.ECR_HOST }}/${{ env.ECR_REPO_NAME }}:${{ env.IMAGE_VERSION }}
-          
-          # Push environment-specific latest tag
-          docker tag ${{ env.ECR_REPO_NAME }}:${{ env.IMAGE_VERSION }} ${{ env.ECR_HOST }}/${{ env.ECR_REPO_NAME }}:production-latest
-          docker push ${{ env.ECR_HOST }}/${{ env.ECR_REPO_NAME }}:production-latest
-
-      - name: Get EC2 Instance ID
-        id: get_instance_id
-        run: |
-          PARAMETER_NAME="/${{ env.PROJECT_NAME }}/${{ env.ENV_NAME }}/ec2_instance_id"
-          echo "Attempting to retrieve SSM parameter with name: ${PARAMETER_NAME}"
-          
-          INSTANCE_ID=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --query "Parameter.Value" --output text)
-          echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
+          make docker-push
 
       - name: Deploy to EC2 via SSM
-        if: env.INSTANCE_ID != ''
         run: |
-          aws ssm send-command \
-            --instance-ids "${{ env.INSTANCE_ID }}" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Deploying ${{ env.SERVICE_NAME }} service" \
-            --parameters commands='[
-              "cd /opt/${{ env.PROJECT_NAME }}",
-              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_HOST }}",
-              "docker-compose pull ${{ env.SERVICE_NAME }}",
-              "docker-compose up -d --no-deps ${{ env.SERVICE_NAME }}",
+          INSTANCE_ID=$(aws ssm get-parameter \
+            --name "/${PROJECT_NAME}/${ENV_NAME}/ec2_instance_id" \
+            --query "Parameter.Value" \
+            --output text \
+            --region "${AWS_REGION}")
+          if [ -z "${INSTANCE_ID}" ] || [ "${INSTANCE_ID}" = "None" ]; then
+            echo "No EC2 instance id from SSM; skipping deploy."
+            exit 0
+          fi
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          CMDS=$(jq -n \
+            --arg p "${PROJECT_NAME}" \
+            --arg r "${AWS_REGION}" \
+            --arg e "${ECR_REGISTRY}" \
+            --arg s "${SERVICE_NAME}" \
+            '{commands: [
+              ("cd /opt/" + $p),
+              ("aws ecr get-login-password --region " + $r + " | docker login --username AWS --password-stdin " + $e),
+              ("docker-compose pull " + $s),
+              ("docker-compose up -d --no-deps " + $s),
               "docker image prune -f"
-            ]' \
+            ]}')
+          aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy ${SERVICE_NAME}" \
+            --parameters "${CMDS}" \
+            --region "${AWS_REGION}" \
             --output text
