@@ -579,3 +579,74 @@ ol.markdown-list {
     max-width: 90%;
   }
 }
+
+/* ---- Tool call indicator (Claude-style) ---- */
+.tool-calls-wrapper {
+  margin-bottom: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.8rem;
+}
+
+.tool-calls-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  background: #f8fafc;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.tool-calls-toggle:hover {
+  background: #f1f5f9;
+}
+
+.tool-calls-icon {
+  color: #6366f1;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+}
+
+.tool-calls-chevron {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.tool-calls-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.tool-calls-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.78rem;
+}
+
+.tool-calls-item:last-child {
+  border-bottom: none;
+}
+
+.tool-calls-name {
+  color: #475569;
+  font-weight: 500;
+}
+
+.tool-calls-query {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.74rem;
+}

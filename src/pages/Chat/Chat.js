@@ -1,11 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaUserMd, FaPaperPlane, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaUserMd, FaPaperPlane, FaPlus, FaTrash, FaSearch, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Navbar from '../../components/Navbar/Navbar';
 import { useChat } from '../../contexts/ChatContext';
 import './Chat.css';
+
+const TOOL_LABELS = {
+  retrieve_bovine_disease_context: 'Pesquisou na base de conhecimento',
+};
+
+function ToolCallBadge({ toolCalls }) {
+  const [open, setOpen] = useState(false);
+  if (!toolCalls || toolCalls.length === 0) return null;
+
+  return (
+    <div className="tool-calls-wrapper">
+      <button
+        type="button"
+        className="tool-calls-toggle"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <FaSearch className="tool-calls-icon" />
+        <span>{toolCalls.length === 1 ? '1 ferramenta usada' : `${toolCalls.length} ferramentas usadas`}</span>
+        {open ? <FaChevronDown className="tool-calls-chevron" /> : <FaChevronRight className="tool-calls-chevron" />}
+      </button>
+      {open && (
+        <ul className="tool-calls-list">
+          {toolCalls.map((tc, i) => (
+            <li key={i} className="tool-calls-item">
+              <span className="tool-calls-name">{TOOL_LABELS[tc.tool_name] || tc.tool_name}</span>
+              {tc.query && <span className="tool-calls-query">"{tc.query}"</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const SUGGESTIONS = [
   'Notei abortos no terço final da gestação e diminuição na produção de leite. Qual doença pode estar afetando meu rebanho?',
@@ -183,6 +216,9 @@ const Chat = () => {
                   </div>
                   <div className="message-content">
                     <div className="message-bubble">
+                      {message.role === 'assistant' && (
+                        <ToolCallBadge toolCalls={message.tool_calls} />
+                      )}
                       {message.role === 'assistant' ? (
                         <div className="markdown-wrapper">
                           <ReactMarkdown

@@ -103,6 +103,7 @@ export function ChatProvider({ children }) {
         content: data?.reply || 'Não consegui gerar uma resposta no momento.',
         created_at: new Date().toISOString(),
         sources: data?.sources || [],
+        tool_calls: data?.tool_calls || [],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
