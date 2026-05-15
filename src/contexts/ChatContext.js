@@ -58,8 +58,12 @@ export function ChatProvider({ children }) {
     }
     setCurrentConversationId(id);
     try {
-      const msgs = await getConversationMessages(id);
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      const raw = await getConversationMessages(id);
+      const msgs = Array.isArray(raw) ? raw.map((m) => ({
+        ...m,
+        tool_calls: m.tool_calls || [],
+      })) : [];
+      setMessages(msgs);
     } catch (err) {
       console.warn('Failed to load messages:', err);
       setMessages([]);
