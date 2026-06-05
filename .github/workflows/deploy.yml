@@ -1,88 +1,10 @@
-name: Deploy BoviCare Web
-
-on:
-  push:
-    branches: [main, staging]
-  pull_request:
-    branches: [main, staging]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  id-token: write
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    environment: ${{ github.ref_name }}
-
-    env:
-      AWS_REGION: us-east-1
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      GIT_SHA: ${{ github.sha }}
-      GIT_BRANCH: ${{ github.ref_name }}
-      PROJECT_NAME: bovicare
-      SERVICE_NAME: frontend
-      ECR_REPOSITORY: bovicare-web
-      ENV_NAME: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsDeployRole
-          role-external-id: github-actions-cicd-user
-          role-duration-seconds: 900
-          role-skip-session-tagging: true
-
-      - uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push image
-        env:
-          GIT_SSH_KEY: ${{ secrets.GIT_SSH_KEY }}
-        run: |
-          if [ -n "${GIT_SSH_KEY:-}" ]; then
-            eval "$(ssh-agent -s)"
-            echo "$GIT_SSH_KEY" | ssh-add -
-            export DOCKER_BUILDKIT=1
-            export DOCKER_BUILD_EXTRA="--ssh default"
-          fi
-          make docker-push
-
-      - name: Deploy to EC2 via SSM
-        run: |
-          INSTANCE_ID=$(aws ssm get-parameter \
-            --name "/${PROJECT_NAME}/${ENV_NAME}/ec2_instance_id" \
-            --query "Parameter.Value" \
-            --output text \
-            --region "${AWS_REGION}")
-          if [ -z "${INSTANCE_ID}" ] || [ "${INSTANCE_ID}" = "None" ]; then
-            echo "No EC2 instance id from SSM; skipping deploy."
-            exit 0
-          fi
-          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          CMDS=$(jq -n \
-            --arg p "${PROJECT_NAME}" \
-            --arg r "${AWS_REGION}" \
-            --arg e "${ECR_REGISTRY}" \
-            --arg s "${SERVICE_NAME}" \
-            '{commands: [
-              ("cd /opt/" + $p),
-              ("aws ecr get-login-password --region " + $r + " | docker login --username AWS --password-stdin " + $e),
-              ("docker-compose pull " + $s),
-              ("docker-compose up -d --no-deps " + $s),
-              "docker image prune -f"
-            ]}')
-          aws ssm send-command \
-            --instance-ids "${INSTANCE_ID}" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Deploy ${SERVICE_NAME}" \
-            --parameters "${CMDS}" \
-            --region "${AWS_REGION}" \
-            --output text
+# CI/CD handled by Vercel GitHub integration.
+# main branch   → Production deployment  (REACT_APP_API_URL = https://api.<domain>)
+# staging branch → Preview deployment    (REACT_APP_API_URL = https://staging-api.<domain>)
+#
+# Setup checklist:
+# 1. Connect this repo to a Vercel project via vercel.com
+# 2. Set Production Branch = main in Vercel project settings
+# 3. Add staging as an additional branch that triggers Preview deployments
+# 4. Set environment variables in Vercel per environment (Production vs Preview):
+#    REACT_APP_API_URL, REACT_APP_API_BASE_URL, REACT_APP_ENV
