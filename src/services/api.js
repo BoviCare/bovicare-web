@@ -696,5 +696,20 @@ export const sendChatMessage = async (query, conversationId = null) => {
   }
 };
 
+export const transcribeAudio = async (audioBlob, filename = 'audio.webm') => {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, filename);
+  try {
+    const response = await api.post('/api/chat/transcribe', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+    return response.data.text;
+  } catch (error) {
+    console.error('Erro ao transcrever áudio:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Falha na transcrição. Tente novamente.');
+  }
+};
+
 // Exportar a instância do axios para uso direto se necessário
 export default api;

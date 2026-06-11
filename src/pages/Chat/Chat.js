@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   FaUserMd, FaPaperPlane, FaPlus, FaTrash,
-  FaSearch, FaChevronDown, FaChevronRight, FaComment
+  FaSearch, FaChevronDown, FaChevronRight, FaComment,
+  FaMicrophone, FaStop
 } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import { isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Navbar from '../../components/Navbar/Navbar';
 import { useChat } from '../../contexts/ChatContext';
+import { transcribeAudio } from '../../services/api';
 import './Chat.css';
 
 const SUGGESTIONS = [
@@ -113,11 +115,52 @@ const Chat = () => {
 
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const messagesEndRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setIsTranscribing(true);
+        try {
+          const text = await transcribeAudio(blob);
+          if (text) setInputValue(prev => prev ? `${prev} ${text}` : text);
+        } catch (err) {
+          window.alert(err.message);
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      window.alert('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
 
   const filtered = conversations.filter(c =>
     (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -324,14 +367,27 @@ const Chat = () => {
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Escreva sua pergunta..."
+                placeholder={isTranscribing ? 'Transcrevendo…' : 'Escreva ou grave sua pergunta…'}
                 rows={1}
-                disabled={isLoading}
+                disabled={isLoading || isTranscribing}
               />
+              <button
+                type="button"
+                className={`chat-mic-btn${isRecording ? ' chat-mic-btn--recording' : ''}`}
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isLoading || isTranscribing}
+                title={isRecording ? 'Parar gravação' : 'Gravar áudio'}
+              >
+                {isTranscribing
+                  ? <span className="chat-loading-spinner" />
+                  : isRecording
+                    ? <FaStop />
+                    : <FaMicrophone />}
+              </button>
               <button
                 type="submit"
                 className="chat-send-btn"
-                disabled={!inputValue.trim() || isLoading}
+                disabled={!inputValue.trim() || isLoading || isRecording || isTranscribing}
                 title="Enviar"
               >
                 {isLoading
