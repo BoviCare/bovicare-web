@@ -319,19 +319,18 @@ const Chat = () => {
                         ) : (
                           <p className="markdown-paragraph">{msg.content}</p>
                         )}
-                        {msg.role === 'assistant' && msg.sources?.length > 0 && (
+                        {msg.role === 'assistant' && msg.tool_calls?.some(tc => tc.tool_name === 'retrieve_bovine_disease_context') && (
                           <div className="message-sources">
                             <strong>Fontes</strong>
                             <div className="sources-tags">
-                              {msg.sources.map((src, i) => (
-                                <span
-                                  key={i}
-                                  className="source-tag"
-                                  title={src.content_preview || src.disease_name}
-                                >
-                                  {src.disease_name || 'Fonte'}
-                                </span>
-                              ))}
+                              <a
+                                className="source-tag"
+                                href="https://www.embrapa.br/busca-de-publicacoes/-/publicacao/1110317/principais-doencas-da-bovinocultura-leiteira"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Embrapa
+                              </a>
                             </div>
                           </div>
                         )}

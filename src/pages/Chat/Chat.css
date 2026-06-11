@@ -488,6 +488,12 @@ ol.markdown-list { list-style-type: decimal; }
   font-size: 12px;
   font-weight: 500;
   border: 1px solid rgba(21, 170, 191, 0.20);
+  text-decoration: none;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.source-tag:hover {
+  background: rgba(21, 170, 191, 0.18);
+  border-color: rgba(21, 170, 191, 0.40);
 }
 
 /* =========================================================
