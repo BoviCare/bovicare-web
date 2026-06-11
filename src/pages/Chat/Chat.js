@@ -1,11 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaUserMd, FaPaperPlane, FaPlus, FaTrash, FaSearch, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import {
+  FaUserMd, FaPaperPlane, FaPlus, FaTrash,
+  FaSearch, FaChevronDown, FaChevronRight, FaComment
+} from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
-import { formatDistanceToNow } from 'date-fns';
+import { isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Navbar from '../../components/Navbar/Navbar';
 import { useChat } from '../../contexts/ChatContext';
 import './Chat.css';
+
+const SUGGESTIONS = [
+  'Notei abortos no terço final da gestação e diminuição na produção de leite. Qual doença pode estar afetando meu rebanho?',
+  'Como prevenir e tratar a brucelose em bovinos?',
+  'Quais vacinas são obrigatórias para o rebanho?',
+];
 
 const TOOL_LABELS = {
   retrieve_bovine_disease_context: 'Pesquisou na base de conhecimento',
@@ -13,15 +22,10 @@ const TOOL_LABELS = {
 
 function ToolCallBadge({ toolCalls }) {
   const [open, setOpen] = useState(false);
-  if (!toolCalls || toolCalls.length === 0) return null;
-
+  if (!toolCalls?.length) return null;
   return (
     <div className="tool-calls-wrapper">
-      <button
-        type="button"
-        className="tool-calls-toggle"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <button type="button" className="tool-calls-toggle" onClick={() => setOpen(o => !o)}>
         <FaSearch className="tool-calls-icon" />
         <span>{toolCalls.length === 1 ? '1 ferramenta usada' : `${toolCalls.length} ferramentas usadas`}</span>
         {open ? <FaChevronDown className="tool-calls-chevron" /> : <FaChevronRight className="tool-calls-chevron" />}
@@ -40,15 +44,61 @@ function ToolCallBadge({ toolCalls }) {
   );
 }
 
-const SUGGESTIONS = [
-  'Notei abortos no terço final da gestação e diminuição na produção de leite. Qual doença pode estar afetando meu rebanho?',
-  'Como prevenir e tratar a brucelose em bovinos?',
-  'Quais vacinas são obrigatórias para o rebanho?',
-];
+function groupByDate(conversations) {
+  const groups = { Hoje: [], Ontem: [], Anteriores: [] };
+  conversations.forEach(conv => {
+    const date = conv.created_at ? new Date(conv.created_at) : null;
+    if (!date || isNaN(date)) {
+      groups.Anteriores.push(conv);
+    } else if (isToday(date)) {
+      groups.Hoje.push(conv);
+    } else if (isYesterday(date)) {
+      groups.Ontem.push(conv);
+    } else {
+      groups.Anteriores.push(conv);
+    }
+  });
+  return groups;
+}
+
+function ConversationRow({ conv, active, onSelect, onDelete }) {
+  const [hovered, setHovered] = useState(false);
+
+  const handleDelete = e => {
+    e.stopPropagation();
+    if (window.confirm('Excluir esta conversa?')) onDelete(conv.id);
+  };
+
+  const relTime = conv.created_at
+    ? formatDistanceToNow(new Date(conv.created_at), { addSuffix: true, locale: ptBR })
+    : null;
+
+  return (
+    <div
+      className={`convo-row${active ? ' convo-row--active' : ''}`}
+      onClick={() => onSelect(conv.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <FaComment className="convo-row__icon" />
+      <div className="convo-row__body">
+        <div className="convo-row__title">{conv.title || 'Nova conversa'}</div>
+        {relTime && <span className="convo-row__time">{relTime}</span>}
+      </div>
+      {hovered && (
+        <button className="convo-row__delete" onClick={handleDelete} title="Excluir">
+          <FaTrash />
+        </button>
+      )}
+    </div>
+  );
+}
 
 const Chat = () => {
   const publicUrl = process.env.PUBLIC_URL || '';
-  const assistantImagePath = publicUrl ? `${publicUrl}/images/assistenteBovicare.jpg` : '/images/assistenteBovicare.jpg';
+  const avatarSrc = publicUrl
+    ? `${publicUrl}/images/assistenteBovicare.jpg`
+    : '/images/assistenteBovicare.jpg';
 
   const {
     conversations,
@@ -62,249 +112,237 @@ const Chat = () => {
   } = useChat();
 
   const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
-  const messagesContainerRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
-  const handleNewConversation = () => {
+  const filtered = conversations.filter(c =>
+    (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const grouped = groupByDate(filtered);
+
+  const currentTitle = conversations.find(c => c.id === currentConversationId)?.title;
+
+  const handleNew = () => {
     resetToInitialState();
     setInputValue('');
+    setSearchQuery('');
   };
 
-  const handleConversationChange = (e) => {
-    const id = e.target.value;
-    setCurrentConversationId(id === '' ? null : id);
-    setInputValue('');
-  };
-
-  const handleDeleteConversation = async () => {
-    if (!currentConversationId) return;
-    if (!window.confirm('Tem certeza que deseja excluir esta conversa?')) return;
+  const handleDelete = async id => {
     try {
-      await deleteConversation(currentConversationId);
-      setInputValue('');
-    } catch (err) {
-      console.error('Erro ao excluir conversa:', err);
+      await deleteConversation(id);
+    } catch {
       window.alert('Não foi possível excluir a conversa. Tente novamente.');
     }
   };
 
-  const handleSendMessage = (e) => {
+  const handleSend = e => {
     e?.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
-    const query = inputValue.trim();
+    const q = inputValue.trim();
+    if (!q || isLoading) return;
     setInputValue('');
-    sendMessage(query);
+    sendMessage(q);
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSend();
     }
-  };
-
-  const handleSuggestionClick = (text) => {
-    setInputValue(text);
-  };
-
-  const formatTimestamp = (timestamp) => {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: ptBR });
   };
 
   return (
     <div className="chat-container">
       <Navbar />
-      <div className="chat-main">
-        <div className="chat-header chat-header-toolbar">
-          <div className="chat-header-controls">
-            <select
-              className="chat-select"
-              value={currentConversationId || ''}
-              onChange={handleConversationChange}
-            >
-              <option value="">Selecione uma conversa</option>
-              {conversations.map((conv) => (
-                <option key={conv.id} value={conv.id}>
-                  {conv.title}
-                </option>
-              ))}
-            </select>
-            {currentConversationId && (
-              <button
-                type="button"
-                className="chat-btn chat-btn-outline chat-btn-danger"
-                onClick={handleDeleteConversation}
-                title="Excluir conversa"
-              >
-                <FaTrash className="chat-btn-icon" />
-                Excluir
-              </button>
-            )}
-            <button
-              type="button"
-              className="chat-btn chat-btn-outline"
-              onClick={handleNewConversation}
-              title="Nova conversa"
-            >
-              <FaPlus className="chat-btn-icon" />
-              Nova Conversa
+
+      <div className="chat-workspace">
+        {/* ── Sidebar ── */}
+        <aside className="chat-sidebar">
+          <div className="chat-sidebar__top">
+            <button className="chat-new-btn" onClick={handleNew}>
+              <FaPlus style={{ fontSize: 12 }} />
+              Nova conversa
             </button>
           </div>
-        </div>
 
-        <div ref={messagesContainerRef} className="chat-messages">
-          {messages.length === 0 ? (
-            <>
-              {!isLoading ? (
-                <div className="chat-empty-state">
-                  <div className="chat-empty-content">
-                    <h2 className="chat-empty-title">Olá! Sou seu assistente de saúde animal.</h2>
-                    <p className="chat-empty-subtitle">Como posso ajudá-lo hoje com questões sobre seu rebanho?</p>
-                  </div>
-                  <div className="chat-suggestions">
-                    {SUGGESTIONS.map((text, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className="chat-suggestion-badge"
-                        onClick={() => handleSuggestionClick(text)}
-                      >
-                        {text.length > 60 ? `${text.slice(0, 60)}...` : text}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="message assistant-message">
-                  <div className="message-avatar">
-                    <img src={assistantImagePath} alt="Assistente" />
-                  </div>
-                  <div className="message-content">
-                    <div className="message-bubble loading">
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </>
-          ) : (
-            <>
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-                >
-                  <div className="message-avatar">
-                    {message.role === 'user' ? (
-                      <FaUserMd />
-                    ) : (
-                      <img src={assistantImagePath} alt="Assistente" />
-                    )}
-                  </div>
-                  <div className="message-content">
-                    <div className="message-bubble">
-                      {message.role === 'assistant' && (
-                        <ToolCallBadge toolCalls={message.tool_calls} />
-                      )}
-                      {message.role === 'assistant' ? (
-                        <div className="markdown-wrapper">
-                          <ReactMarkdown
-                            components={{
-                              h2: ({ children, ...props }) => <h2 className="markdown-subheader" {...props}>{children}</h2>,
-                              h3: ({ children, ...props }) => <h3 className="markdown-subheader" {...props}>{children}</h3>,
-                              p: (props) => <p className="markdown-paragraph" {...props} />,
-                              ul: (props) => <ul className="markdown-list" {...props} />,
-                              ol: (props) => <ol className="markdown-list" {...props} />,
-                              li: (props) => <li className="markdown-list-item" {...props} />,
-                              strong: (props) => <strong {...props} />,
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p className="markdown-paragraph">{message.content}</p>
-                      )}
-                      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                        <div className="message-sources">
-                          <strong>Fontes:</strong>
-                          <div className="sources-tags">
-                            {message.sources.map((source, idx) => (
-                              <span
-                                key={idx}
-                                className="source-tag"
-                                title={source.content_preview || source.disease_name}
-                              >
-                                {source.disease_name || 'Fonte'}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <span className="message-time">{formatTimestamp(message.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="message assistant-message">
-                  <div className="message-avatar">
-                    <img src={assistantImagePath} alt="Assistente" />
-                  </div>
-                  <div className="message-content">
-                    <div className="message-bubble loading">
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
-
-        <div className="chat-input">
-          <form onSubmit={handleSendMessage} className="chat-input-form">
-            <textarea
-              className="chat-textarea message-input"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Digite sua mensagem..."
-              rows={1}
-              disabled={isLoading}
+          <div className="chat-sidebar__search-wrap">
+            <FaSearch className="chat-sidebar__search-icon" />
+            <input
+              className="chat-sidebar__search-input"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar conversas..."
             />
-            <button
-              type="submit"
-              className="chat-send-btn"
-              disabled={!inputValue.trim() || isLoading}
-              title="Enviar"
-            >
-              {isLoading ? (
-                <span className="chat-loading-spinner" />
-              ) : (
-                <FaPaperPlane className="chat-send-icon" />
-              )}
-            </button>
-          </form>
-          <p className="chat-disclaimer">O Chatbot pode cometer erros. Confira informações importantes.</p>
+          </div>
+
+          <div className="chat-sidebar__list">
+            {(['Hoje', 'Ontem', 'Anteriores']).map(label => {
+              const items = grouped[label];
+              if (!items.length) return null;
+              return (
+                <div key={label} className="chat-sidebar__group">
+                  <div className="chat-sidebar__group-label">{label}</div>
+                  {items.map(conv => (
+                    <ConversationRow
+                      key={conv.id}
+                      conv={conv}
+                      active={conv.id === currentConversationId}
+                      onSelect={setCurrentConversationId}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="chat-sidebar__empty">Nenhuma conversa encontrada.</div>
+            )}
+          </div>
+        </aside>
+
+        {/* ── Chat pane ── */}
+        <div className="chat-pane">
+          {/* Header */}
+          <div className="chat-pane__header">
+            <img src={avatarSrc} alt="Assistente BoviCare" className="chat-pane__avatar" />
+            <div>
+              <h2 className="chat-pane__title">
+                {currentTitle || 'Assistente BoviCare'}
+              </h2>
+              <p className="chat-pane__subtitle">Saúde, manejo e produção do rebanho</p>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="chat-messages">
+            {messages.length === 0 && !isLoading ? (
+              <div className="chat-empty-state">
+                <img src={avatarSrc} alt="Assistente" className="chat-empty__avatar" />
+                <h3 className="chat-empty__title">Como posso ajudar hoje?</h3>
+                <p className="chat-empty__subtitle">
+                  Pergunte sobre o seu rebanho — esta conversa será salva automaticamente.
+                </p>
+                <div className="chat-suggestions">
+                  {SUGGESTIONS.map((text, i) => (
+                    <button
+                      key={i}
+                      className="chat-suggestion-chip"
+                      onClick={() => sendMessage(text)}
+                    >
+                      {text.length > 60 ? `${text.slice(0, 60)}…` : text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {messages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className={`chat-bubble chat-bubble--${msg.role}`}
+                  >
+                    <div className="chat-bubble__avatar">
+                      {msg.role === 'user' ? (
+                        <FaUserMd />
+                      ) : (
+                        <img src={avatarSrc} alt="Assistente" />
+                      )}
+                    </div>
+                    <div className="chat-bubble__content">
+                      <div className={`chat-bubble__body${msg.role === 'assistant' ? ' chat-bubble__body--assistant' : ''}`}>
+                        {msg.role === 'assistant' && (
+                          <ToolCallBadge toolCalls={msg.tool_calls} />
+                        )}
+                        {msg.role === 'assistant' ? (
+                          <div className="markdown-wrapper">
+                            <ReactMarkdown
+                              components={{
+                                h2: ({ children, ...p }) => <h2 className="markdown-subheader" {...p}>{children}</h2>,
+                                h3: ({ children, ...p }) => <h3 className="markdown-subheader" {...p}>{children}</h3>,
+                                p: p => <p className="markdown-paragraph" {...p} />,
+                                ul: p => <ul className="markdown-list" {...p} />,
+                                ol: p => <ol className="markdown-list" {...p} />,
+                                li: p => <li className="markdown-list-item" {...p} />,
+                                strong: p => <strong {...p} />,
+                              }}
+                            >
+                              {msg.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <p className="markdown-paragraph">{msg.content}</p>
+                        )}
+                        {msg.role === 'assistant' && msg.sources?.length > 0 && (
+                          <div className="message-sources">
+                            <strong>Fontes</strong>
+                            <div className="sources-tags">
+                              {msg.sources.map((src, i) => (
+                                <span
+                                  key={i}
+                                  className="source-tag"
+                                  title={src.content_preview || src.disease_name}
+                                >
+                                  {src.disease_name || 'Fonte'}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {isLoading && (
+                  <div className="chat-bubble chat-bubble--assistant">
+                    <div className="chat-bubble__avatar">
+                      <img src={avatarSrc} alt="Assistente" />
+                    </div>
+                    <div className="chat-bubble__content">
+                      <div className="chat-bubble__body chat-bubble__body--assistant">
+                        <div className="typing-indicator">
+                          <span /><span /><span />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="chat-input-area">
+            <form className="chat-input-form" onSubmit={handleSend}>
+              <textarea
+                className="chat-textarea"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Escreva sua pergunta..."
+                rows={1}
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                className="chat-send-btn"
+                disabled={!inputValue.trim() || isLoading}
+                title="Enviar"
+              >
+                {isLoading
+                  ? <span className="chat-loading-spinner" />
+                  : <FaPaperPlane />}
+              </button>
+            </form>
+            <p className="chat-disclaimer">
+              O assistente pode cometer erros. Confirme informações críticas com um veterinário.
+            </p>
+          </div>
         </div>
       </div>
     </div>
